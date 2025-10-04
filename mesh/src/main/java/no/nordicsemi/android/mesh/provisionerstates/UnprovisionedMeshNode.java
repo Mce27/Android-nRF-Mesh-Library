@@ -32,6 +32,8 @@ import no.nordicsemi.android.mesh.utils.SecureUtils;
 @SuppressWarnings("WeakerAccess")
 public final class UnprovisionedMeshNode extends UnprovisionedBaseMeshNode {
 
+    private byte[] provisionerConfirmation;
+
     public UnprovisionedMeshNode(final UUID uuid) {
         super(uuid);
     }
@@ -46,6 +48,7 @@ public final class UnprovisionedMeshNode extends UnprovisionedBaseMeshNode {
         sharedECDHSecret = in.createByteArray();
         provisionerRandom = in.createByteArray();
         provisioneeConfirmation = in.createByteArray();
+        provisionerConfirmation = in.createByteArray();
         authenticationValue = in.createByteArray();
         provisioneeRandom = in.createByteArray();
         networkKey = in.createByteArray();
@@ -79,6 +82,7 @@ public final class UnprovisionedMeshNode extends UnprovisionedBaseMeshNode {
         dest.writeByteArray(sharedECDHSecret);
         dest.writeByteArray(provisionerRandom);
         dest.writeByteArray(provisioneeConfirmation);
+        dest.writeByteArray(provisionerConfirmation);
         dest.writeByteArray(authenticationValue);
         dest.writeByteArray(provisioneeRandom);
         dest.writeByteArray(networkKey);
@@ -161,6 +165,14 @@ public final class UnprovisionedMeshNode extends UnprovisionedBaseMeshNode {
 
     void setProvisioneeConfirmation(final byte[] provisioneeConfirmation) {
         this.provisioneeConfirmation = provisioneeConfirmation;
+    }
+
+    public byte[] getProvisionerConfirmation() {
+        return provisionerConfirmation;
+    }
+
+    void setProvisionerConfirmation(final byte[] provisionerConfirmation) {
+        this.provisionerConfirmation = provisionerConfirmation;
     }
 
     /**

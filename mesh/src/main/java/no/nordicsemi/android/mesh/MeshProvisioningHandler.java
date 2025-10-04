@@ -143,6 +143,8 @@ class MeshProvisioningHandler implements InternalProvisioningCallbacks {
                     if (validateMessage(data)) {
                         if (parseProvisioneeRandom(data)) {
                             sendProvisioningData(unprovisionedMeshNode);
+                        } else {
+                        parseProvisioningState(unprovisionedMeshNode, data);
                         }
                     } else {
                         parseProvisioningState(unprovisionedMeshNode, data);

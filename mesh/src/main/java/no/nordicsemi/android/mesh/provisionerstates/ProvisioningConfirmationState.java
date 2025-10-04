@@ -25,6 +25,7 @@ package no.nordicsemi.android.mesh.provisionerstates;
 import no.nordicsemi.android.mesh.logger.MeshLogger;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -85,6 +86,8 @@ public class ProvisioningConfirmationState extends ProvisioningState {
     public void executeSend() {
 
         final byte[] provisioningConfirmationPDU = createProvisioningConfirmation();
+        final byte[] confirmationWithoutHeaders = Arrays.copyOfRange(provisioningConfirmationPDU, 2, provisioningConfirmationPDU.length);
+        mNode.setProvisionerConfirmation(confirmationWithoutHeaders);
         mStatusCallbacks.onProvisioningStateChanged(mNode, States.PROVISIONING_CONFIRMATION_SENT, provisioningConfirmationPDU);
         mInternalTransportCallbacks.sendProvisioningPdu(mNode, provisioningConfirmationPDU);
     }

@@ -94,6 +94,17 @@ public class ProvisioningRandomConfirmationState extends ProvisioningState {
 
     private boolean provisioneeMatches() {
         final byte[] provisioneeRandom = node.getProvisioneeRandom();
+        final byte[] provisionerRandom = node.getProvisionerRandom();
+        final byte[] provisioneeConfirmation = node.getProvisioneeConfirmation();
+        final byte[] provisionerConfirmation = node.getProvisionerConfirmation();
+
+        // Check for a potential reflection attack where the random and confirmation values are identical.
+        boolean isReflectionAttack = Arrays.equals(provisioneeRandom, provisionerRandom) &&Arrays.equals(provisioneeConfirmation, provisionerConfirmation);
+
+        if (isReflectionAttack) {
+            MeshLogger.error(TAG, "Reflection attack detected!");
+            return false;
+        }
 
         final byte[] confirmationInputs = provisioningCallbacks.generateConfirmationInputs(node.getProvisionerPublicKeyXY(),
                 node.getProvisioneePublicKeyXY());

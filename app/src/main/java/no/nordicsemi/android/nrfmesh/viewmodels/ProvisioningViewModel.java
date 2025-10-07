@@ -28,6 +28,7 @@ import javax.inject.Inject;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
 import dagger.hilt.android.lifecycle.HiltViewModel;
 import no.nordicsemi.android.mesh.provisionerstates.ProvisioningCapabilities;
 import no.nordicsemi.android.mesh.provisionerstates.UnprovisionedMeshNode;
@@ -43,6 +44,8 @@ import no.nordicsemi.android.nrfmesh.R;
 @HiltViewModel
 public class ProvisioningViewModel extends BaseViewModel {
 
+    private final MutableLiveData<byte[]> mScannedOobPublicKey = new MutableLiveData<>();
+
     @Inject
     ProvisioningViewModel(@NonNull final NrfMeshRepository nrfMeshRepository) {
         super(nrfMeshRepository);
@@ -55,10 +58,18 @@ public class ProvisioningViewModel extends BaseViewModel {
     }
 
     /**
-     * Returns the LifeData {@link UnprovisionedMeshNode}
+     * Returns the LiveData {@link UnprovisionedMeshNode}
      */
     public LiveData<UnprovisionedMeshNode> getUnprovisionedMeshNode() {
         return mNrfMeshRepository.getUnprovisionedMeshNode();
+    }
+
+    public LiveData<byte[]> getScannedOobPublicKey() {
+        return mScannedOobPublicKey;
+    }
+
+    public void setScannedOobPublicKey(final byte[] publicKey) {
+        mScannedOobPublicKey.setValue(publicKey);
     }
 
     /**

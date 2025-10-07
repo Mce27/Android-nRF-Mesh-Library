@@ -23,10 +23,20 @@
 package no.nordicsemi.android.nrfmesh;
 
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.Uri;
+import android.nfc.NdefMessage;
+import android.nfc.NdefRecord;
+import android.nfc.NfcAdapter;
+import android.nfc.Tag;
+import android.nfc.tech.Ndef;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
 import com.google.android.material.snackbar.Snackbar;
 
@@ -58,6 +68,7 @@ import no.nordicsemi.android.nrfmesh.adapter.ProvisioningProgressAdapter;
 import no.nordicsemi.android.nrfmesh.databinding.ActivityMeshProvisionerBinding;
 import no.nordicsemi.android.nrfmesh.dialog.DialogFragmentAuthenticationInput;
 import no.nordicsemi.android.nrfmesh.dialog.DialogFragmentConfigurationComplete;
+import no.nordicsemi.android.nrfmesh.DialogFragmentOobPublicKey;
 import no.nordicsemi.android.nrfmesh.dialog.DialogFragmentProvisioningFailedError;
 import no.nordicsemi.android.nrfmesh.dialog.DialogFragmentSelectOOBType;
 import no.nordicsemi.android.nrfmesh.dialog.DialogFragmentUnicastAddress;
@@ -83,9 +94,15 @@ public class ProvisioningActivity extends AppCompatActivity implements
     private static final String DIALOG_FRAGMENT_PROVISIONING_FAILED = "DIALOG_FRAGMENT_PROVISIONING_FAILED";
     private static final String DIALOG_FRAGMENT_AUTH_INPUT_TAG = "DIALOG_FRAGMENT_AUTH_INPUT_TAG";
     private static final String DIALOG_FRAGMENT_CONFIGURATION_STATUS = "DIALOG_FRAGMENT_CONFIGURATION_STATUS";
+    private static final String DIALOG_FRAGMENT_OOB_PUBLIC_KEY_TAG = "DIALOG_FRAGMENT_OOB_PUBLIC_KEY_TAG";
 
     private ActivityMeshProvisionerBinding binding;
     private ProvisioningViewModel mViewModel;
+    
+    // NFC related fields
+    private NfcAdapter nfcAdapter;
+    private PendingIntent nfcPendingIntent;
+    private boolean nfcScanningEnabled = false;
 
     private final ActivityResultLauncher<Intent> appKeySelector = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         if (result.getResultCode() == RESULT_OK && result.getData() != null) {
@@ -115,6 +132,14 @@ public class ProvisioningActivity extends AppCompatActivity implements
             getSupportActionBar().setTitle(deviceName);
             getSupportActionBar().setSubtitle(deviceAddress);
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        }
+
+        // Initialize NFC
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        if (nfcAdapter != null) {
+            nfcPendingIntent = PendingIntent.getActivity(this, 0,
+                new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 
+                PendingIntent.FLAG_MUTABLE);
         }
 
         if (savedInstanceState == null && device != null)
@@ -237,7 +262,7 @@ public class ProvisioningActivity extends AppCompatActivity implements
 
             if (node.getProvisioningCapabilities() != null) {
                 if (node.getProvisioningCapabilities().isPublicKeyOobSupported()) {
-                    DialogFragmentOobPublicKey.newInstance().show(getSupportFragmentManager(), null);
+                    DialogFragmentOobPublicKey.newInstance().show(getSupportFragmentManager(), DIALOG_FRAGMENT_OOB_PUBLIC_KEY_TAG);
                 } else {
                     if (node.getProvisioningCapabilities().getAvailableOOBTypes().size() == 1 &&
                             node.getProvisioningCapabilities().getAvailableOOBTypes().get(0) == AuthenticationOOBMethods.NO_OOB_AUTHENTICATION) {
@@ -261,6 +286,135 @@ public class ProvisioningActivity extends AppCompatActivity implements
             return true;
         }
         return false;
+    }
+
+    @Override
+    protected void onNewIntent(final Intent intent) {
+        super.onNewIntent(intent);
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction()) ||
+            NfcAdapter.ACTION_TAG_DISCOVERED.equals(intent.getAction())) {
+            
+            Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+            if (tag != null) {
+                byte[] publicKey = readPublicKeyFromNfc(tag);
+                if (publicKey != null) {
+                    // Check if we have an active public key dialog
+                    DialogFragmentOobPublicKey dialog = (DialogFragmentOobPublicKey) 
+                        getSupportFragmentManager().findFragmentByTag(DIALOG_FRAGMENT_OOB_PUBLIC_KEY_TAG);
+                    if (dialog != null) {
+                        // Auto-fill the dialog if it's open
+                        dialog.setPublicKey(MeshParserUtils.bytesToHex(publicKey, false));
+                        Toast.makeText(this, R.string.nfc_key_received, Toast.LENGTH_SHORT).show();
+                        disableNfcForegroundDispatch();
+                    } else {
+                        // Store the key for later use (when dialog opens)
+                        mViewModel.setScannedOobPublicKey(publicKey);
+                        Toast.makeText(this, R.string.nfc_key_received, Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(this, R.string.nfc_error_read_failed, Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+            final Uri uri = intent.getData();
+            if (uri != null && "mesh".equals(uri.getScheme()) && "publickey".equals(uri.getHost())) {
+                String base64Key = uri.getPath();
+                if (base64Key != null) {
+                    if (base64Key.startsWith("/")) {
+                        base64Key = base64Key.substring(1);
+                    }
+                    try {
+                        // Decode the Base64 public key
+                        final byte[] provisioneePublicKey = Base64.decode(base64Key, Base64.DEFAULT);
+                        // Pass the key to the ViewModel
+                        mViewModel.setScannedOobPublicKey(provisioneePublicKey);
+                        // Inform the user that the key was received successfully
+                        Toast.makeText(this, "Public key received via NFC.", Toast.LENGTH_SHORT).show();
+                    } catch (IllegalArgumentException e) {
+                        // Handle error: Base64 decoding failed
+                        Toast.makeText(this, "Error: Invalid public key format.", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onNfcScanRequested() {
+        if (nfcAdapter != null && nfcAdapter.isEnabled()) {
+            enableNfcForegroundDispatch();
+            Toast.makeText(this, R.string.nfc_scan_prompt, Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "NFC is not available or disabled", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    @Nullable
+    public byte[] getScannedOobPublicKey() {
+        return mViewModel.getNrfMeshRepository().getOobPublicKey();
+    }
+
+    private void enableNfcForegroundDispatch() {
+        if (nfcAdapter != null) {
+            IntentFilter[] intentFilters = new IntentFilter[]{
+                new IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED),
+                new IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)
+            };
+            nfcAdapter.enableForegroundDispatch(this, nfcPendingIntent, intentFilters, null);
+            nfcScanningEnabled = true;
+        }
+    }
+
+    private void disableNfcForegroundDispatch() {
+        if (nfcAdapter != null) {
+            nfcAdapter.disableForegroundDispatch(this);
+            nfcScanningEnabled = false;
+        }
+    }
+
+    private byte[] readPublicKeyFromNfc(Tag tag) {
+        try {
+            Ndef ndef = Ndef.get(tag);
+            if (ndef != null) {
+                ndef.connect();
+                NdefMessage message = ndef.getNdefMessage();
+                if (message != null) {
+                    NdefRecord[] records = message.getRecords();
+                    for (NdefRecord record : records) {
+                        // Check if this is a URI record
+                        if (record.getTnf() == NdefRecord.TNF_WELL_KNOWN && 
+                            java.util.Arrays.equals(record.getType(), NdefRecord.RTD_URI)) {
+                            // Parse URI record
+                            byte[] payload = record.getPayload();
+                            if (payload.length > 1) {
+                                // Skip URI identifier code (first byte)
+                                String uri = new String(payload, 1, payload.length - 1);
+                                if (uri.startsWith("mesh://publickey/")) {
+                                    String base64Key = uri.substring("mesh://publickey/".length());
+                                    try {
+                                        // Decode the Base64 public key
+                                        return Base64.decode(base64Key, Base64.DEFAULT);
+                                    } catch (IllegalArgumentException e) {
+                                        // Invalid Base64
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                ndef.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        disableNfcForegroundDispatch();
     }
 
     @Override
@@ -451,6 +605,13 @@ public class ProvisioningActivity extends AppCompatActivity implements
                 node.setNodeName(mViewModel.getNetworkLiveData().getNodeName());
                 setupProvisionerStateObservers();
                 binding.provisioningProgressBar.setVisibility(View.VISIBLE);
+
+                byte[] oobKey = mViewModel.getNrfMeshRepository().getOobPublicKey();
+                if (oobKey != null) {
+                    node.setProvisioneePublicKeyXY(oobKey);
+                    // Clear the key so it is only used for this provisioning attempt.
+                    mViewModel.getNrfMeshRepository().clearOobPublicKey();
+                }
                 mViewModel.getMeshManagerApi().startProvisioning(node);
             } catch (IllegalArgumentException ex) {
                 mViewModel.displaySnackBar(this, binding.coordinator, ex.getMessage() == null ? getString(R.string.unknwon_error) : ex.getMessage(), Snackbar.LENGTH_LONG);

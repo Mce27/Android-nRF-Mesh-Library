@@ -71,6 +71,13 @@
         android:name="android.permission.BLUETOOTH_CONNECT"
         android:usesPermissionFlags="neverForLocation"
         tools:targetApi="s" />
+    <!--
+     NFC permission is required to read NFC tags containing public keys for OOB authentication.
+    -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="false" />
 
     <uses-sdk tools:overrideLibrary="androidx.core.splashscreen"/>
 
@@ -94,8 +101,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="mesh"
+                    android:host="publickey" />
+            </intent-filter>
         </activity>
-
         <!--
          This activity alias is used to allow opening nRF Blinky from nRF Toolbox.
          This is not required if this feature is not desired.
@@ -154,9 +166,17 @@
         <activity
             android:name=".keys.EditAppKeyActivity"
             android:launchMode="singleTop" />
-        <activity
+                <activity
             android:name=".ProvisioningActivity"
-            android:launchMode="singleTop" />
+            android:launchMode="singleTop"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="mesh"
+                    android:host="publickey" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".node.NodeConfigurationActivity"
             android:launchMode="singleTop" />
@@ -168,7 +188,7 @@
             android:launchMode="singleTop" />
         <activity
             android:name=".scenes.ScenesActivity"
-            android:launchMode="singleTop" />
+            android.launchMode="singleTop" />
         <activity
             android:name=".node.PublicationSettingsActivity"
             android:launchMode="singleTop" />
@@ -195,7 +215,7 @@
             android:launchMode="singleTop" />
         <activity
             android:name=".node.ConfigurationServerActivity"
-            android:launchMode="singleTop" />
+            android.launchMode="singleTop" />
         <activity
             android:name=".node.HeartbeatPublicationActivity"
             android:launchMode="singleTop" />

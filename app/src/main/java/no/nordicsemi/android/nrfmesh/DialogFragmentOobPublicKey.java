@@ -43,6 +43,8 @@ public class DialogFragmentOobPublicKey extends DialogFragment {
 
     public interface DialogFragmentOobPublicKeysListener {
         void onPublicKeyAdded(@Nullable final byte[] publicKey);
+        void onNfcScanRequested();
+        @Nullable byte[] getScannedOobPublicKey();
     }
 
     public static DialogFragmentOobPublicKey newInstance() {
@@ -80,6 +82,17 @@ public class DialogFragmentOobPublicKey extends DialogFragment {
             }
         });
 
+        // Set up NFC scan button
+        binding.btnNfcScan.setOnClickListener(v -> {
+            ((DialogFragmentOobPublicKeysListener) requireContext()).onNfcScanRequested();
+        });
+
+        // Check if there's already a scanned key available
+        final byte[] existingKey = ((DialogFragmentOobPublicKeysListener) requireContext()).getScannedOobPublicKey();
+        if (existingKey != null) {
+            binding.textInput.setText(MeshParserUtils.bytesToHex(existingKey, false));
+        }
+
         final AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(requireContext()).setView(binding.getRoot())
                 .setPositiveButton(R.string.ok, null).setNegativeButton(R.string.skip, null);
 
@@ -104,5 +117,16 @@ public class DialogFragmentOobPublicKey extends DialogFragment {
             dismiss();
         });
         return alertDialog;
+    }
+
+    /**
+     * Sets the public key in the input field, typically called when NFC scanning provides a key.
+     * @param publicKeyHex The hexadecimal string representation of the public key
+     */
+    public void setPublicKey(final String publicKeyHex) {
+        if (binding != null && binding.textInput != null && publicKeyHex != null) {
+            binding.textInput.setText(publicKeyHex);
+            binding.textInputLayout.setError(null);
+        }
     }
 }

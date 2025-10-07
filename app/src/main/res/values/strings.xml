@@ -689,4 +689,9 @@
     <string name="message_public_key">Enter the 128-character hexadecimal Public Key of the device.</string>
     <string name="skip">skip</string>
     <string name="skip_oob_public_key_summary">Skipping this process will mark the provisioned node and any Network Key associated with this node as insecure.</string>
+    <string name="nfc_scan">NFC</string>
+    <string name="nfc_scan_prompt">Hold device near NFC tag to scan public key…</string>
+    <string name="nfc_key_received">Public key received via NFC</string>
+    <string name="nfc_error_invalid_format">Error: Invalid public key format in NFC tag</string>
+    <string name="nfc_error_read_failed">Error: Failed to read NFC tag</string>
 </resources>

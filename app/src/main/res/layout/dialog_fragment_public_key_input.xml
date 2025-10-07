@@ -57,7 +57,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/item_padding_start"
         android:layout_marginTop="@dimen/activity_vertical_margin"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btn_nfc_scan"
         app:layout_constraintStart_toEndOf="@id/prefix"
         app:layout_constraintTop_toBottomOf="@id/summary">
 
@@ -71,6 +71,17 @@
             android:textSize="16sp"/>
 
     </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_nfc_scan"
+        style="@style/Widget.Material3.Button.Icon"
+        android:layout_width="95dp"
+        android:layout_height="60dp"
+        android:text="@string/nfc_scan"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        app:layout_constraintBottom_toBottomOf="@id/text_input_layout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_input_layout" />
 
     <com.google.android.material.textview.MaterialTextView
         android:layout_width="0dp"

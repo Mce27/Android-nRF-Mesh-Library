@@ -95,6 +95,19 @@ import static no.nordicsemi.android.nrfmesh.ble.BleMeshManager.MESH_PROXY_UUID;
 @Singleton
 public class NrfMeshRepository implements MeshProvisioningStatusCallbacks, MeshStatusCallbacks, MeshManagerCallbacks, BleMeshManagerCallbacks {
 
+    private byte[] oobPublicKey;
+
+    public void setOobPublicKey(byte[] publicKey) {
+        this.oobPublicKey = publicKey;
+    }
+
+    public byte[] getOobPublicKey() {
+        return this.oobPublicKey;
+    }
+
+    public void clearOobPublicKey() {
+        this.oobPublicKey = null;
+    }
     private static final String TAG = NrfMeshRepository.class.getSimpleName();
     private static final int ATTENTION_TIMER = 5;
     static final String EXPORT_PATH = Environment.getExternalStorageDirectory() + File.separator +

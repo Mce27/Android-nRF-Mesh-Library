@@ -22,10 +22,15 @@
 
 package no.nordicsemi.android.nrfmesh;
 
+import android.content.Intent;
+import android.net.Uri;
+import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
@@ -69,7 +74,11 @@ public class MainActivity extends AppCompatActivity implements
         // setTheme, this is preferred in our case, as this also work for older platforms.
         setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
+
         mViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
+        
+        // Handle NFC intent if this activity was launched via NFC
+        handleIntent(getIntent());
 
         // Set up the splash screen.
         // The app is using SplashScreen compat library, which is supported on Android 5+, but the
@@ -117,6 +126,38 @@ public class MainActivity extends AppCompatActivity implements
             onNavigationItemSelected(bottomNavigationView.getMenu().findItem(R.id.action_network));
         } else {
             bottomNavigationView.setSelectedItemId(savedInstanceState.getInt(CURRENT_FRAGMENT));
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+            Uri uri = intent.getData();
+            if (uri != null && "mesh".equals(uri.getScheme()) && "publickey".equals(uri.getHost())) {
+                String base64Key = uri.getPath();
+                if (base64Key != null) {
+                    if (base64Key.startsWith("/")) {
+                        base64Key = base64Key.substring(1);
+                    }
+                    try {
+                        // Decode the Base64 public key
+                        byte[] provisioneePublicKey = Base64.decode(base64Key, Base64.DEFAULT);
+                        // Store the public key in the repository
+                        mViewModel.getNrfMeshRepository().setOobPublicKey(provisioneePublicKey);
+
+                        // Inform the user that the key was received successfully
+                        Toast.makeText(this, "Public key received via NFC. Ready for OOB provisioning.", Toast.LENGTH_LONG).show();
+                    } catch (IllegalArgumentException e) {
+                        // Handle error: Base64 decoding failed
+                        Toast.makeText(this, "Error: Invalid public key format.", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
         }
     }
 
